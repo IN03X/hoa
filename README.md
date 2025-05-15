@@ -18,3 +18,5 @@ python hoa.py
 ```
 
 ## Visualization of HOA coefficients
+
+<img src="https://github.com/user-attachments/assets/dbce4800-6443-4365-82bd-82010a29f7b1" width="600">
