@@ -1,30 +1,6 @@
 import numpy as np
-from einops import rearrange
 from scipy.special import sph_harm
-
-
-def real_sh(azi: np.ndarray, col: np.ndarray, order: int) -> np.ndarray:
-    r"""Calculate harmonic bases Y_nm(θ, φ).
-
-    Args:
-        order: int
-        azi: np.ndarray, azimuth, [0, 2π)
-        col: np.ndarray, colatitude [0, pi)
-
-    Outputs:
-        bases: (θ.shape, chn), bases Y_nm(θ, φ), where chn = (order+1)^2
-    """
-
-    bases = []
-
-    for n in range(order + 1):
-        for m in range(-n, n + 1):
-            Y = sph_harm(m, n, azi, col)  # θ.shape
-            bases.append(Y.real)  # (chn, θ.shape)
-    
-    bases = np.stack(bases, axis=0)  # (chn, θ.shape), Y_nm(θ, φ)
-
-    return bases
+from einops import rearrange
 
 
 def forward_hoa(value: np.ndarray, azi: np.ndarray, col: np.ndarray, order: int) -> np.ndarray:
@@ -76,6 +52,30 @@ def inverse_hoa(hoa: np.ndarray, azi: np.ndarray, col: np.ndarray, order: int) -
     out = np.dot(bases, hoa)  # θ.shape
 
     return out
+
+
+def real_sh(azi: np.ndarray, col: np.ndarray, order: int) -> np.ndarray:
+    r"""Calculate harmonic bases Y_nm(θ, φ).
+
+    Args:
+        order: int
+        azi: np.ndarray, azimuth, [0, 2π)
+        col: np.ndarray, colatitude [0, pi)
+
+    Outputs:
+        bases: (θ.shape, chn), bases Y_nm(θ, φ), where chn = (order+1)^2
+    """
+
+    bases = []
+
+    for n in range(order + 1):
+        for m in range(-n, n + 1):
+            Y = sph_harm(m, n, azi, col)  # θ.shape
+            bases.append(Y.real)  # (chn, θ.shape)
+    
+    bases = np.stack(bases, axis=0)  # (chn, θ.shape), Y_nm(θ, φ)
+
+    return bases
 
 
 if __name__ == '__main__':
