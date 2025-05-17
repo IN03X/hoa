@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.special import sph_harm
-from einops import rearrange
+from einops import rearrange, reduce
 
 
 def forward_hoa(value: np.ndarray, azi: np.ndarray, col: np.ndarray, order: int) -> np.ndarray:
@@ -9,22 +9,21 @@ def forward_hoa(value: np.ndarray, azi: np.ndarray, col: np.ndarray, order: int)
     a_nm = \int_{f(θ, φ) Y_nm(θ, φ) sinθ dθdφ}
 
     Args:
-        value: value at azi and col
-        azi: elevation
-        col: azimuth
-        order: int
+        value: (n, ...)
+        azi: (n, ...), azimuth, [0, 2π)
+        col: (n, ...), colatitude, [0, π]. (col = π/2 - elevation)
+        order: int, HOA order
 
     Outputs:
         a_nm: (chn,) where chn = (order+1)^2
     """
     
     # Y_nm(θ, φ)
-    bases = real_sh(azi, col, order)  # (chn, θ.shape)
+    bases = real_sh(azi, col, order)  # (chn, n, ...)
 
     # a_nm = \int_{f(θ, φ) Y_nm(θ, φ) sinθ dθdφ}
-    C = bases.shape[0]
-    hoa = (value * bases).reshape(C, -1).sum(axis=1)  # (chn,)
-
+    hoa = reduce(bases * value, 'c ... -> c', reduction='sum')  # (chn,)
+    
     return hoa
 
 
@@ -35,21 +34,21 @@ def inverse_hoa(hoa: np.ndarray, azi: np.ndarray, col: np.ndarray, order: int) -
     f(θ, φ) = \sum_{n,m}{a_{nm} Y_nm(θ, φ)}
     
     Args:
-        hoa: (chn,)
-        azi: np.ndarray
-        col: np.ndarray
-        order: int
+        hoa: (chn,), HOA coefficients
+        azi: (n, ...), azimuth, [0, 2π)
+        col: (n, ...), colatitude, [0, π]. (col = π/2 - elevation)
+        order: int, HOA order
 
     Outputs:
-        out: θ.shape, reconstructed signal
+        out: (n, ...), reconstructed signal
     """
 
     # Y_nm(θ, φ)
-    bases = real_sh(azi, col, order)  # (chn, θ.shape)
+    bases = real_sh(azi, col, order)  # (chn, n, ...)
 
     # f(θ, φ) = \sum_{n,m}{a_{nm} Y_nm(θ, φ)}
-    bases = rearrange(bases, 'c ... -> ... c')  # (θ.shape, chn)
-    out = np.dot(bases, hoa)  # θ.shape
+    bases = rearrange(bases, 'c ... -> ... c')  # (n, ..., chn)
+    out = np.dot(bases, hoa)  # (n, ...)
 
     return out
 
@@ -59,21 +58,22 @@ def real_sh(azi: np.ndarray, col: np.ndarray, order: int) -> np.ndarray:
 
     Args:
         order: int
-        azi: np.ndarray, azimuth, [0, 2π)
-        col: np.ndarray, colatitude [0, pi)
+        azi: (n, ...), azimuth, [0, 2π)
+        col: (n, ...), colatitude [0, π]
 
     Outputs:
-        bases: (θ.shape, chn), bases Y_nm(θ, φ), where chn = (order+1)^2
+        bases: (n, ..., chn), bases Y_nm(θ, φ), where chn = (order+1)^2
     """
 
     bases = []
 
     for n in range(order + 1):
         for m in range(-n, n + 1):
-            Y = sph_harm(m, n, azi, col)  # θ.shape
-            bases.append(Y.real)  # (chn, θ.shape)
+            Y = sph_harm(m, n, azi, col)  # (n, ...)
+            bases.append(Y.real)  # (chn, n, ...)
     
-    bases = np.stack(bases, axis=0)  # (chn, θ.shape), Y_nm(θ, φ)
+    # Y_nm(θ, φ)
+    bases = np.stack(bases, axis=0)  # (chn, n, ...)
 
     return bases
 
